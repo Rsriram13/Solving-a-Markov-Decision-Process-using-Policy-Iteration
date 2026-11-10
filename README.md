@@ -126,20 +126,198 @@ If the improved policy is the same as the old policy, the policy is considered s
 
 ```python
 
+import gymnasium as gym
+import numpy as np
+
+# -------------------------------------------------
+# Create FrozenLake Environment
+# -------------------------------------------------
+
+env = gym.make("FrozenLake-v1", map_name="4x4", is_slippery=True)
+env = env.unwrapped
+
+n_states = env.observation_space.n
+n_actions = env.action_space.n
+
+gamma = 0.99
+theta = 1e-8
+
+policy = np.ones((n_states, n_actions)) / n_actions
+
 # -------------------------------------------------
 # Policy Evaluation
 # -------------------------------------------------
 
+def policy_evaluation(env, policy, gamma=0.99, theta=1e-8):
 
+    V = np.zeros(n_states)
+
+    while True:
+
+        delta = 0
+
+        for s in range(n_states):
+
+            v = V[s]
+            value = 0
+
+            for a in range(n_actions):
+
+                action_prob = policy[s][a]
+
+                for prob, next_state, reward, done in env.P[s][a]:
+
+                    value += action_prob * prob * (
+                        reward + gamma * V[next_state] * (not done)
+                    )
+
+            V[s] = value
+            delta = max(delta, abs(v - V[s]))
+
+        if delta < theta:
+            break
+
+    return V
+
+
+# -------------------------------------------------
+# Run Policy Evaluation
+# -------------------------------------------------
+
+V = policy_evaluation(env, policy, gamma, theta)
+
+print("Policy Evaluation - Value Function")
+print("")
+print(np.round(V.reshape(4, 4), 4))
 
 # -------------------------------------------------
 # Policy Improvement
 # -------------------------------------------------
 
-#-------------------------------------------------
+def policy_improvement(env, V, gamma=0.99):
+
+    policy = np.zeros((n_states, n_actions))
+
+    for s in range(n_states):
+
+        action_values = np.zeros(n_actions)
+
+        for a in range(n_actions):
+
+            for prob, next_state, reward, done in env.P[s][a]:
+
+                action_values[a] += prob * (
+                    reward + gamma * V[next_state] * (not done)
+                )
+
+        best_action = np.argmax(action_values)
+
+        policy[s][best_action] = 1
+
+    return policy
+
+
+# -------------------------------------------------
+# Run Policy Improvement
+# -------------------------------------------------
+
+policy = policy_improvement(env, V, gamma)
+
+action_symbols = {
+    0: "←",
+    1: "↓",
+    2: "→",
+    3: "↑"
+}
+
+best_actions = np.argmax(policy, axis=1)
+
+policy_grid = np.array(
+    [action_symbols[a] for a in best_actions]
+).reshape(4, 4)
+
+print("\nPolicy Improvement")
+print("")
+print(policy_grid)
+
+# -------------------------------------------------
 # Policy Iteration
 # -------------------------------------------------
 
+def policy_iteration(env, policy, gamma=0.99, theta=1e-8):
+
+    while True:
+
+        V = policy_evaluation(env, policy, gamma, theta)
+
+        new_policy = policy_improvement(env, V, gamma)
+
+        if np.array_equal(policy, new_policy):
+            break
+
+        policy = new_policy
+
+    return policy, V
+
+
+# -------------------------------------------------
+# Run Policy Iteration
+# -------------------------------------------------
+
+optimal_policy, optimal_value_function = policy_iteration(
+    env,
+    policy,
+    gamma,
+    theta
+)
+
+# -------------------------------------------------
+# Display Functions
+# -------------------------------------------------
+
+def print_value_function(V):
+
+    print("\nOptimal State-Value Function:")
+    print(np.round(V.reshape(4, 4), 4))
+
+
+def print_policy(policy):
+
+    action_symbols = {
+        0: "←",
+        1: "↓",
+        2: "→",
+        3: "↑"
+    }
+
+    best_actions = np.argmax(policy, axis=1)
+
+    policy_grid = np.array(
+        [action_symbols[action] for action in best_actions]
+    ).reshape(4, 4)
+
+    print("\nOptimal Policy:")
+    print("")
+    print(policy_grid)
+
+
+# -------------------------------------------------
+# Display Final Results
+# -------------------------------------------------
+
+print("\nName: Sriram R")
+print("Register Number: 212223230215")
+
+print_value_function(optimal_value_function)
+
+print_policy(optimal_policy)
+
+
+# -------------------------------------------------
+# Close Environment
+# -------------------------------------------------
+
+env.close()
 
 
 
@@ -147,34 +325,13 @@ If the improved policy is the same as the old policy, the policy is considered s
 
 ## Output
 
-```text
+<img width="531" height="576" alt="image" src="https://github.com/user-attachments/assets/e97a64eb-376d-4fc7-986e-12886eda744e" />
 
-Total policy iterations: 
-
-Optimal State-Value Function:
-
-
-Optimal Policy:
-
-```
-
-
-
----
 
 ## Result
 
-```text
-
-
-
-```
----
+The FrozenLake-v1 environment was successfully created, and Policy Iteration was implemented. The initial policy was evaluated to compute the state-value function, followed by policy improvement to obtain a better policy. The process was repeated until the policy became stable. The algorithm converged to the optimal state-value function and optimal policy, enabling the agent to maximize the expected cumulative reward in the environment.
 
 ## Inference
-```text
 
-
-```
----
-
+Policy Iteration combines policy evaluation and policy improvement to find the optimal policy. The state-value function increased for states closer to the goal, while hole states retained a value of zero. The optimal policy guides the agent toward the goal while avoiding holes as much as possible. Since the FrozenLake environment is slippery (stochastic), multiple optimal policies may exist, resulting in different but equally optimal action directions.
